@@ -1,0 +1,43 @@
+# Byte-compiled / optimized / dependency files
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Data files (images, annotations, etc.)
+data/coco/val2014/*
+!data/coco/val2014/*.json  # allow JSONs if needed
+
+# Image formats
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.webp
+
+# Archive files
+*.zip
+*.tar
+*.tar.gz
+
+# Log files
+*.log
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE/Editor files
+.vscode/
+*.code-workspace
+.idea/
+
