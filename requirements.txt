@@ -1,0 +1,15 @@
+torch==2.2.1+cu121        # pre‑built PyTorch wheel for CUDA 12.1
+torchaudio==2.2.1+cu121
+torchvision==0.17.1+cu121
+--extra-index-url https://download.pytorch.org/whl/cu121          # lets pip find the CUDA wheels
+
+diffusers[torch]>=0.27.0     # Hugging Face pipelines
+transformers>=4.40.0
+accelerate>=0.28.0
+einops>=0.7
+sentencepiece                # optional, but many T5/SD pipelines use it
+
+pycocotools                  # COCO helpers
+wandb                       # optional: experiment tracking
+torchmetrics>=1.3
+scipy>=1.12

@@ -1,0 +1,13 @@
+# Ignore image files
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.webp
+
+# Optional: ignore other large or unwanted files
+*.zip
+*.tar.gz
+*.mp4
