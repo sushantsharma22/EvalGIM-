@@ -1,13 +1,17 @@
-# Ignore image files
-*.jpg
-*.jpeg
-*.png
-*.gif
-*.bmp
-*.tiff
-*.webp
-
-# Optional: ignore other large or unwanted files
+# Ignore big dataset files
+*.json
 *.zip
+*.tar
 *.tar.gz
-*.mp4
+*.h5
+*.pt
+*.pth
+*.ckpt
+*.npz
+*.npy
+*.pkl
+
+# Ignore specific known large files
+scripts/captions_val2014.json
+data/
+
