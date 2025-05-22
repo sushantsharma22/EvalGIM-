@@ -1,0 +1,10 @@
+0: A small kitchen with some quirky art decorations.
+1: A dog wearing a bandanna and sitting on the trunk of a car.
+2: A small kitchen contains a refrigerator and small counter.
+3: A small refrigerator in a small kitchen with a window.
+4: a blue and yellow train a building and some cars
+5: Wooden bench sitting in the grass  under a tree.
+6: a pole with street lights, signs and wires attached to it
+7: A man walks past a closed store front.
+8: A pizza sitting on top of a wooden cutting board.
+9: A white bowl sitting on top of a table.

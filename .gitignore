@@ -15,3 +15,7 @@
 scripts/captions_val2014.json
 data/
 
+.venv/
+.venv/
+*.log
+*.png
