@@ -1,100 +1,78 @@
-#!/usr/bin/env python
 import argparse, json, torch
 from accelerate import Accelerator
 from diffusers import StableDiffusionPipeline
-from tqdm import tqdm
+from tqdm.auto import tqdm
 from PIL import Image
 from pathlib import Path
+import os
 
-def load_prompts(path):
-    return Path(path).read_text().splitlines()
-
-def parse_failed(log_path):
-    if not log_path.exists():
-        return []
-    failed = []
-    for line in log_path.read_text().splitlines():
-        if ": " in line:
-            idx, prompt = line.split(": ", 1)
-            try:
-                failed.append((int(idx), prompt))
-            except:
-                pass
-    return failed
+def safe_model_name(model_id):
+    return model_id.replace("/", "_").replace("-", "_")
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_id",     required=True)
+    parser.add_argument("--model_id", required=True)
     parser.add_argument("--prompts_file", required=True)
-    parser.add_argument("--cfg_scale",    type=float, default=7.5)
-    parser.add_argument("--batch_size",   type=int,   default=1)
-    parser.add_argument("--out_dir",      required=True)
-    parser.add_argument("--failed_log",   default="failed_prompts.txt")
+    parser.add_argument("--cfg_scale", type=float, default=7.5)
+    parser.add_argument("--batch_size", type=int, default=1)
+    parser.add_argument("--out_dir", required=True)
     args = parser.parse_args()
 
-    # 1) Load model
-    accel = Accelerator()
+    accelerator = Accelerator()
+    device = accelerator.device
+
+    # Define subfolder using model ID and cfg
+    model_name = safe_model_name(args.model_id)
+    subfolder = f"{model_name}_cfg{args.cfg_scale}"
+    out_path = Path(args.out_dir) / subfolder
+    out_path.mkdir(parents=True, exist_ok=True)
+
+    # Load prompts
+    prompts = Path(args.prompts_file).read_text().splitlines()
+    existing_files = {p.stem for p in out_path.glob("*.png")}
+
     pipe = StableDiffusionPipeline.from_pretrained(
         args.model_id,
-        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32
-    ).to(accel.device)
-    pipe.safety_checker = lambda images, **kw: (images, False)
+        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+    )
+    pipe.to(device)
+    pipe.safety_checker = lambda images, **kwargs: (images, False)
     pipe.set_progress_bar_config(disable=True)
 
-    # 2) Load prompts & figure out work
-    prompts = load_prompts(args.prompts_file)
-    total   = len(prompts)
+    remaining = []
+    for idx, prompt in enumerate(prompts):
+        filename = f"{idx:05d}.png"
+        if filename[:-4] not in existing_files:
+            remaining.append((idx, prompt))
 
-    # 3) Use out_dir exactly as passed
-    out_root = Path(args.out_dir)
-    print(f"[DEBUG] Writing to OUT_DIR = {args.out_dir}", flush=True)
-    out_root.mkdir(parents=True, exist_ok=True)
+    accelerator.print(f"[INFO] {len(existing_files)} exist, {len(remaining)} to generate")
 
-    existing = {int(p.stem) for p in out_root.glob("*.png")}
-    to_do    = [i for i in range(total) if i not in existing]
-    print(f"[INFO] {len(existing)} exist, {len(to_do)} to generate", flush=True)
+    for i in tqdm(range(0, len(remaining), args.batch_size)):
+        batch = remaining[i:i + args.batch_size]
+        indices, texts = zip(*batch)
 
-    # 4) Clear old failures
-    flog = Path(args.failed_log)
-    if flog.exists(): flog.unlink()
+        try:
+            with torch.autocast("cuda" if torch.cuda.is_available() else "cpu"):
+                results = pipe(list(texts), num_inference_steps=30, guidance_scale=args.cfg_scale)
+            images = results.images
+        except Exception as e:
+            accelerator.print(f"[ERROR] Failed batch {i}: {e}")
+            continue
 
-    # 5) Generate missing
-    with flog.open("a") as f:
-        pbar = tqdm(to_do, total=len(to_do), unit="img", ncols=80)
-        for idx in pbar:
-            pbar.set_description(f"{idx:05d}.png")
-            prompt = prompts[idx]
+        for img, idx in zip(images, indices):
+            fname = out_path / f"{idx:05d}.png"
             try:
-                with torch.autocast(device_type="cuda" if torch.cuda.is_available() else "cpu"):
-                    img = pipe([prompt], num_inference_steps=30, guidance_scale=args.cfg_scale).images[0]
-                if not isinstance(img, Image.Image):
-                    raise ValueError
-                img.save(out_root / f"{idx:05d}.png")
-                print(f"Saved {idx:05d}.png", flush=True)
-            except Exception:
-                f.write(f"{idx}: {prompt}\n")
-            pbar.update(1)
-        pbar.close()
+                img.save(fname)
+            except Exception as e:
+                accelerator.print(f"[ERROR] Failed to save image {fname.name}: {e}")
 
-    # 6) Retry failures once
-    failed = parse_failed(flog)
-    if failed:
-        print(f"[INFO] Retrying {len(failed)} failures…", flush=True)
-        with flog.open("w") as f:
-            for idx, prompt in failed:
-                path = out_root / f"{idx:05d}.png"
-                if path.exists(): continue
-                try:
-                    img = pipe([prompt], num_inference_steps=30, guidance_scale=args.cfg_scale).images[0]
-                    img.save(path)
-                    print(f"Saved {idx:05d}.png", flush=True)
-                except:
-                    f.write(f"{idx}: {prompt}\n")
+    json.dump({
+        "model": args.model_id,
+        "cfg_scale": args.cfg_scale,
+        "total_prompts": len(prompts)
+    }, open(out_path / "meta.json", "w"), indent=2)
 
-    # 7) Write meta
-    meta = {"model": args.model_id, "cfg_scale": args.cfg_scale, "total_prompts": total}
-    (out_root/"meta.json").write_text(json.dumps(meta, indent=2))
-    print("✅ Done!", flush=True)
+    accelerator.print(f"[DONE] Images saved to {out_path}")
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
