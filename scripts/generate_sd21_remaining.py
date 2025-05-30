@@ -8,7 +8,7 @@ model_id = "stabilityai/stable-diffusion-2-1"
 prompts_file = "data/coco/coco_5k_prompts.txt"
 out_dir = "results/gen/sd21_coco/stabilityai_stable-diffusion-2-1_cfg7.5"
 cfg_scale = 7.5
-start_index = 1036  # Already generated
+start_index = 3424  
 end_index = 5000
 
 # Ensure output directory exists
