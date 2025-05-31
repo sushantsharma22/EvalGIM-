@@ -43,7 +43,8 @@ def main():
         torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
     )
     pipe.to(device)
-    pipe.safety_checker = lambda images, **kwargs: (images, [False] * len(images))
+    if pipe.safety_checker is not None:
+        pipe.safety_checker = lambda images, **kwargs: (images, [False] * len(images))
     pipe.set_progress_bar_config(disable=True)
 
     # Generate in batches
